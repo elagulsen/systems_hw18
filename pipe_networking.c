@@ -11,7 +11,27 @@
   returns the file descriptor for the upstream pipe.
   =========================*/
 int server_handshake(int *to_client) {
-  return 0;
+  printf("SERVER HANDSHAKE\n");
+  
+  mkfifo("wkp", 0644);
+  printf("Made a well known pipe.\n");
+  
+  int to_server = open("wkp", O_RDONLY);
+  char private[HANDSHAKE_BUFFER_SIZE];
+  read(to_server, private, HANDSHAKE_BUFFER_SIZE);
+  remove("wkp"); //unnamed pipe now
+  printf("Read the message %s and removed the well known pipe.\n", private);
+  
+  int from_server = open(private, O_WRONLY);
+  write(from_server, ACK, HANDSHAKE_BUFFER_SIZE);
+  printf("Transmitted %s to the client.\n", ACK);
+  
+  char conf[HANDSHAKE_BUFFER_SIZE];
+  read(to_server, conf, HANDSHAKE_BUFFER_SIZE);
+  printf("Received a confirmation: %s.\n", conf);
+  
+  to_client = &from_server;
+  return to_server;
 }
 
 
@@ -25,5 +45,22 @@ int server_handshake(int *to_client) {
   returns the file descriptor for the downstream pipe.
   =========================*/
 int client_handshake(int *to_server) {
-  return 0;
+  printf("CLIENT HANDSHAKE\n");
+  mkfifo("client_p", 0644);
+  printf("Made the client pipe.\n");
+  
+  *to_server = open("wkp", O_WRONLY);
+  write(*to_server, "client_p", HANDSHAKE_BUFFER_SIZE);
+  printf("Transmitted the name of the client pipe to the well known pipe.\n");
+  
+  int from_server = open("client_p", O_RDONLY);
+  char message[HANDSHAKE_BUFFER_SIZE];
+  read(from_server, message, HANDSHAKE_BUFFER_SIZE);
+  printf("Received the message %s\n", message);
+  
+  remove("client_p"); //unnamed pipe now
+  write(*to_server, message, HANDSHAKE_BUFFER_SIZE);
+  printf("Messaged the server.\n");
+  
+  return from_server;
 }
